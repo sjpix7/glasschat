@@ -23,15 +23,48 @@ Switch effortlessly between **OpenAI**, **Anthropic**, **Google Gemini**, and lo
 
 - 🔮 **Glassmorphism Aesthetic**: Translucent frosted panels, backdrop blur, ambient neon orbs, and responsive design.
 - ⚡ **Real-Time Streaming**: Low-latency token-by-token streaming over NDJSON.
-- 🎨 **Custom Themes & Backgrounds**: Choose between 7 curated color palettes (*Amethyst Nebula, Emerald Aurora, Midnight Sapphire, Cosmic Crimson, Solar Amber, OLED Obsidian, Frosted Opal*) and 5 live background visual effects (*Floating Orbs, Liquid Aurora, Cosmic Starfield, Cyber Grid, Minimal Studio*).
+- 🎨 **Custom Themes & Backgrounds**: Choose between 7 curated color palettes and 5 live background visual effects:
+  - 🔮 **Amethyst Nebula** *(Default)* — Signature glowing violet, electric indigo & royal purple.
+  - 🌲 **Emerald Aurora** — Deep obsidian teal, cybernetic emerald & mint accents.
+  - 🌊 **Midnight Sapphire** — Abyss navy, azure blue & sky electric highlights.
+  - 🌸 **Cosmic Crimson** — Warm plum, radiant neon rose & magenta embers.
+  - ☀️ **Solar Amber** — Warm espresso bronze, golden topaz & amber tones.
+  - 🖤 **OLED Obsidian** — Pure pitch-black minimalism with crisp silver frost glass.
+  - 💎 **Frosted Opal** — Clean, luminous frosted light mode with pastel lavender reflections.
 - 📋 **One-Click Copying**: Copy entire sent prompts, assistant responses, or individual code blocks with a single click.
-- 💾 **Local Storage Persistence**: Model names, API keys, and provider selections are saved in your browser across refreshes.
+- 💾 **Local Storage Persistence**: Model names, API keys, provider selections, and active themes are saved in your browser across refreshes.
 - 🔄 **Multi-Provider Support**:
   - `OpenAI` (`gpt-4o`, `gpt-4o-mini`, `o1`, etc.)
   - `Anthropic` (`claude-3-5-sonnet`, `claude-3-haiku`, etc.)
   - `Google Gemini` (`gemini-2.5-flash`, `gemini-1.5-pro`, etc.)
   - `Ollama` (`llama3.2`, `qwen2.5-coder:1.5b`, `mistral`, etc.)
 - 🛡️ **Privacy First**: Credentials are kept locally in browser storage and routed securely via backend request. They are never logged to disk or saved to a database.
+
+---
+
+## 🎨 Themes & Custom Atmosphere
+
+Personalize the entire workspace from the header pill button or the sidebar with instant live preview.
+
+<p align="center">
+  <img src="assets/themes.png" alt="Glasschat Theme Customization - Cosmic Crimson" width="100%" style="border-radius: 12px; box-shadow: 0 20px 70px rgba(5,5,18,0.35);" />
+</p>
+
+### 🌈 Color Palettes:
+- 🔮 **Amethyst Nebula** *(Default)* — Signature glowing violet, electric indigo & royal purple.
+- 🌲 **Emerald Aurora** — Deep obsidian teal, cybernetic emerald & mint accents.
+- 🌊 **Midnight Sapphire** — Abyss navy, azure blue & sky electric highlights.
+- 🌸 **Cosmic Crimson** — Warm plum, radiant neon rose & magenta embers.
+- ☀️ **Solar Amber** — Warm espresso bronze, golden topaz & amber tones.
+- 🖤 **OLED Obsidian** — Pure pitch-black minimalism with crisp silver frost glass.
+- 💎 **Frosted Opal** — Clean, luminous frosted light mode with pastel lavender reflections.
+
+### 🫧 Live Background Effects:
+- **Floating Orbs** — Ambient floating glowing spheres with organic pulsing animation.
+- **Liquid Aurora** — Flowing, animated multi-stop mesh gradients that slowly morph behind the glass.
+- **Cosmic Starfield** — Subtle twinkling distant star clusters and ambient starlight glow.
+- **Cyber Grid** — High-tech perspective digital grid with soft radial vignette mask.
+- **Minimal Studio** — Distraction-free clean vignette gradient without motion for maximum focus.
 
 ---
 
