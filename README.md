@@ -23,6 +23,7 @@ Switch effortlessly between **OpenAI**, **Anthropic**, **Google Gemini**, and lo
 
 - 🔮 **Glassmorphism Aesthetic**: Translucent frosted panels, backdrop blur, ambient neon orbs, and responsive design.
 - ⚡ **Real-Time Streaming**: Low-latency token-by-token streaming over NDJSON.
+- 🎨 **Custom Themes & Backgrounds**: Choose between 7 curated color palettes (*Amethyst Nebula, Emerald Aurora, Midnight Sapphire, Cosmic Crimson, Solar Amber, OLED Obsidian, Frosted Opal*) and 5 live background visual effects (*Floating Orbs, Liquid Aurora, Cosmic Starfield, Cyber Grid, Minimal Studio*).
 - 📋 **One-Click Copying**: Copy entire sent prompts, assistant responses, or individual code blocks with a single click.
 - 💾 **Local Storage Persistence**: Model names, API keys, and provider selections are saved in your browser across refreshes.
 - 🔄 **Multi-Provider Support**:

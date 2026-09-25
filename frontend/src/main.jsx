@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Sparkles, ArrowUp, Plus, SlidersHorizontal, ArrowUpRight, Square, ChevronDown, ShieldCheck, MessageCircle, Cpu, Zap, Copy, Check } from 'lucide-react';
+import { 
+  Sparkles, ArrowUp, Plus, SlidersHorizontal, ArrowUpRight, 
+  Square, ChevronDown, ShieldCheck, MessageCircle, Cpu, Zap, 
+  Copy, Check, Palette, X, Waves, Grid 
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import './style.css';
@@ -10,6 +14,26 @@ const initialConfig = {provider:'openai',model:'',api_key:'',base_url:'http://ho
 const starters = [ ['Create something', 'Write three creative names for a sustainable clothing brand.'], ['Make it simple', 'Explain how a language model works using a simple everyday analogy.'], ['Find a fresh angle', 'Give me five unusual ideas for a weekend creative project.'] ];
 const STORAGE_KEY = 'glasschat_config';
 const PROVIDERS_KEY = 'glasschat_providers';
+const THEME_KEY = 'glasschat_theme';
+const BG_KEY = 'glasschat_bg';
+
+const THEMES = [
+  { id: 'amethyst', name: 'Amethyst Nebula', mood: 'Signature Violet', previewGradient: 'linear-gradient(135deg, #a855f7, #6366f1)' },
+  { id: 'aurora', name: 'Emerald Aurora', mood: 'Cybernetic Teal', previewGradient: 'linear-gradient(135deg, #10b981, #06b6d4)' },
+  { id: 'sapphire', name: 'Midnight Sapphire', mood: 'Abyss Azure', previewGradient: 'linear-gradient(135deg, #3b82f6, #0ea5e9)' },
+  { id: 'crimson', name: 'Cosmic Crimson', mood: 'Radiant Rose', previewGradient: 'linear-gradient(135deg, #f43f5e, #c026d3)' },
+  { id: 'amber', name: 'Solar Amber', mood: 'Golden Topaz', previewGradient: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+  { id: 'obsidian', name: 'OLED Obsidian', mood: 'Monochrome Frost', previewGradient: 'linear-gradient(135deg, #e4e4e7, #71717a)' },
+  { id: 'opal', name: 'Frosted Opal', mood: 'Luminous Light', previewGradient: 'linear-gradient(135deg, #c4b5fd, #e0e7ff)' },
+];
+
+const BACKGROUNDS = [
+  { id: 'orbs', name: 'Floating Orbs', desc: 'Signature organic floating glow', icon: Sparkles },
+  { id: 'aurora-waves', name: 'Liquid Aurora', desc: 'Flowing dynamic ambient mesh', icon: Waves },
+  { id: 'starfield', name: 'Cosmic Starfield', desc: 'Subtle twinkling star cluster', icon: Sparkles },
+  { id: 'cyber-grid', name: 'Cyber Grid', desc: 'High-tech perspective glass grid', icon: Grid },
+  { id: 'minimal', name: 'Minimal Studio', desc: 'Calm vignette without motion', icon: Square },
+];
 
 function getInitialConfig(){
  try{
@@ -20,6 +44,22 @@ function getInitialConfig(){
   }
  }catch(e){}
  return initialConfig;
+}
+
+function getInitialTheme() {
+ try {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved && THEMES.some(t => t.id === saved)) return saved;
+ } catch (e) {}
+ return 'amethyst';
+}
+
+function getInitialBg() {
+ try {
+  const saved = localStorage.getItem(BG_KEY);
+  if (saved && BACKGROUNDS.some(b => b.id === saved)) return saved;
+ } catch (e) {}
+ return 'orbs';
 }
 
 async function copyToClipboard(text) {
@@ -143,17 +183,146 @@ function ChatMessage({ m }){
  );
 }
 
+function BackgroundLayers({ bgStyle }) {
+ if (bgStyle === 'aurora-waves') {
+  return (
+   <div className="bg-container">
+    <div className="bg-aurora-mesh" />
+    <div className="orb orb-aurora-accent" />
+   </div>
+  );
+ }
+ if (bgStyle === 'starfield') {
+  return (
+   <div className="bg-container">
+    <div className="bg-starfield" />
+    <div className="orb orb-star-glow" />
+   </div>
+  );
+ }
+ if (bgStyle === 'cyber-grid') {
+  return (
+   <div className="bg-container">
+    <div className="bg-cyber-grid" />
+    <div className="orb orb-grid-glow" />
+   </div>
+  );
+ }
+ if (bgStyle === 'minimal') {
+  return (
+   <div className="bg-container">
+    <div className="bg-minimal-studio" />
+   </div>
+  );
+ }
+ return (
+  <div className="bg-container">
+   <div className="orb orb-one" />
+   <div className="orb orb-two" />
+   <div className="orb orb-three" />
+  </div>
+ );
+}
+
+function ThemeModal({ open, onClose, theme, setTheme, bgStyle, setBgStyle }) {
+ useEffect(() => {
+  if (!open) return;
+  const handleKey = (e) => {
+   if (e.key === 'Escape') onClose();
+  };
+  window.addEventListener('keydown', handleKey);
+  return () => window.removeEventListener('keydown', handleKey);
+ }, [open, onClose]);
+
+ if (!open) return null;
+
+ return (
+  <div className="theme-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Theme and background visual settings">
+   <div className="theme-modal-card glass" onClick={e => e.stopPropagation()}>
+    <div className="theme-modal-header">
+     <div className="theme-modal-title">
+      <div className="theme-modal-icon"><Palette size={19} /></div>
+      <div>
+       <h3>Appearance & Atmosphere</h3>
+       <p>Personalize your color palette and background visuals</p>
+      </div>
+     </div>
+     <button className="theme-modal-close" onClick={onClose} aria-label="Close appearance settings"><X size={18} /></button>
+    </div>
+
+    <div className="theme-modal-section">
+     <span className="eyebrow">COLOR PALETTES ({THEMES.length})</span>
+     <div className="themes-grid">
+      {THEMES.map(t => (
+       <button
+        key={t.id}
+        type="button"
+        className={`theme-card ${theme === t.id ? 'active' : ''}`}
+        onClick={() => setTheme(t.id)}
+       >
+        <div className="theme-preview-orb" style={{ background: t.previewGradient }}>
+         {theme === t.id && <Check size={14} className="theme-check-icon" />}
+        </div>
+        <div className="theme-info">
+         <strong>{t.name}</strong>
+         <span>{t.mood}</span>
+        </div>
+       </button>
+      ))}
+     </div>
+    </div>
+
+    <div className="theme-modal-section">
+     <span className="eyebrow">BACKGROUND EFFECTS ({BACKGROUNDS.length})</span>
+     <div className="bg-styles-grid">
+      {BACKGROUNDS.map(b => {
+       const Icon = b.icon;
+       return (
+        <button
+         key={b.id}
+         type="button"
+         className={`bg-card ${bgStyle === b.id ? 'active' : ''}`}
+         onClick={() => setBgStyle(b.id)}
+        >
+         <div className="bg-card-icon"><Icon size={16} /></div>
+         <div className="bg-info">
+          <strong>{b.name}</strong>
+          <span>{b.desc}</span>
+         </div>
+         {bgStyle === b.id && <span className="bg-active-tag">Active</span>}
+        </button>
+       );
+      })}
+     </div>
+    </div>
+
+    <div className="theme-modal-footer">
+     <span className="theme-footer-hint">Changes are applied immediately and saved locally</span>
+     <button type="button" className="theme-done-btn" onClick={onClose}>Done</button>
+    </div>
+   </div>
+  </div>
+ );
+}
+
 function App(){
  const [config,setConfig]=useState(getInitialConfig), [messages,setMessages]=useState([]), [input,setInput]=useState('');
  const [busy,setBusy]=useState(false), [error,setError]=useState(''), [settings,setSettings]=useState(false);
+ const [theme, setTheme] = useState(getInitialTheme);
+ const [bgStyle, setBgStyle] = useState(getInitialBg);
+ const [themeModalOpen, setThemeModalOpen] = useState(false);
+
  const controller=useRef(null), chatScroll=useRef(null), sending=useRef(false);
  const ready=Boolean(config.model.trim() && (config.provider==='ollama' ? config.base_url.trim() : config.api_key.trim()));
+
  useEffect(()=>{
   if(chatScroll.current){
    chatScroll.current.scrollTo({top:chatScroll.current.scrollHeight,behavior:'smooth'});
   }
  },[messages,busy]);
+
  useEffect(()=>()=>controller.current?.abort(),[]);
+
  useEffect(()=>{
   try{
    localStorage.setItem(STORAGE_KEY,JSON.stringify(config));
@@ -166,6 +335,21 @@ function App(){
    localStorage.setItem(PROVIDERS_KEY,JSON.stringify(savedProviders));
   }catch(e){}
  },[config]);
+
+ useEffect(() => {
+  try {
+   localStorage.setItem(THEME_KEY, theme);
+   document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {}
+ }, [theme]);
+
+ useEffect(() => {
+  try {
+   localStorage.setItem(BG_KEY, bgStyle);
+   document.documentElement.setAttribute('data-bg', bgStyle);
+  } catch (e) {}
+ }, [bgStyle]);
+
  function change(field,value){setConfig(c=>({...c,[field]:value}));}
  function switchProvider(value){
   setConfig(c=>{
@@ -215,21 +399,168 @@ function App(){
    setMessages(ms=>ms.map((m,i)=>i===ms.length-1?{...m,failed:true,content:m.content||(stopped?'Response stopped.':err.message)}:m));
   }finally{sending.current=false;setBusy(false);controller.current=null;}
  }
- return <div className="app"><div className="orb orb-one"/><div className="orb orb-two"/><div className="orb orb-three"/>
-  <header><a className="brand" href="/" aria-label="Glasschat home"><span className="brand-icon"><Sparkles size={21}/></span>glasschat<span className="beta">PLAYGROUND</span></a><div className="header-right"><span className="private"><ShieldCheck size={14}/> Keys saved locally</span><button className="icon-button mobile-toggle" onClick={()=>setSettings(!settings)} aria-label="Toggle model settings"><SlidersHorizontal size={20}/></button></div></header>
-  <main><aside className={`glass sidebar ${settings?'open':''}`}><div className="panel-heading"><span className="eyebrow">YOUR WORKSPACE</span><SlidersHorizontal size={16}/></div><h2>Make it yours.</h2><p className="muted intro">Your model. Your conversation.</p>
-   <button className="new-chat" onClick={newChat} disabled={busy}><Plus size={17}/> New conversation <span>↗</span></button>
-   <div className="divider"/><div className="section-label"><Cpu size={15}/> MODEL CONNECTION</div>
-   <fieldset disabled={busy}><label htmlFor="provider">Provider</label><div className="select-wrap"><select id="provider" value={config.provider} onChange={e=>switchProvider(e.target.value)}>{Object.entries(providers).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select><ChevronDown size={16}/></div>
-   <label htmlFor="model">Model name</label><input id="model" value={config.model} onChange={e=>change('model',e.target.value)} placeholder={config.provider==='ollama'?'e.g. qwen2.5-coder:1.5b':'Enter an available model ID'} autoComplete="off"/>
-   {config.provider==='ollama'?<><label htmlFor="url">Ollama server URL</label><input id="url" type="url" value={config.base_url} onChange={e=>change('base_url',e.target.value)}/><p className="field-hint">For Docker, use host.docker.internal to reach Ollama on your computer.</p></>:<><label htmlFor="key">API key <span>SAVED LOCALLY</span></label><input id="key" type="password" value={config.api_key} onChange={e=>change('api_key',e.target.value)} placeholder="Paste your API key" autoComplete="off"/><p className="field-hint">Stored in browser local storage and sent to the backend for your requests.</p></>}
-   <details><summary>Assistant instructions</summary><textarea aria-label="Assistant instructions" value={config.system_prompt} onChange={e=>change('system_prompt',e.target.value)} rows={4} maxLength={4000}/></details></fieldset>
-   <div className="sidebar-footer"><span className={`status-dot ${ready?'ready':''}`}/><span>{ready?'Configured · not yet verified':'Waiting for connection details'}</span></div>
-  </aside>
-  <section className="glass chat-panel"><div className="chat-header"><div className="chat-title"><MessageCircle size={17}/><span>Conversation</span></div><span className="model-badge"><span className="status-dot"/>{providers[config.provider]}</span></div>
-     <div className="chat-scroll" ref={chatScroll} aria-live="polite" aria-busy={busy}>{messages.length===0?<div className="welcome"><div className="hero-symbol"><Sparkles size={34}/></div><div className="eyebrow hero-eyebrow">A LITTLE SPACE FOR BIG IDEAS</div><h1>A clearer<br/><span>conversation.</span></h1><p>Think out loud. Follow your curiosity.<br/>Bring your favorite model along.</p><div className="starters">{starters.map(([title,prompt],i)=><button key={title} onClick={()=>setInput(prompt)}><span className="starter-icon">{i===0?<Sparkles size={17}/>:i===1?<Zap size={17}/>:<MessageCircle size={17}/>}</span><strong>{title}</strong><ArrowUpRight size={15}/></button>)}</div></div>:<div className="messages">{messages.map((m,i)=><ChatMessage key={i} m={m}/>)}</div>}</div>
-   <div className="composer-area">{error&&<div className="error" role="alert">{error}</div>}<form onSubmit={send} className="composer"><textarea aria-label="Message" placeholder="Where should we begin?" value={input} onChange={e=>setInput(e.target.value)} rows={2} maxLength={32000} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/><div className="composer-bottom"><span><Sparkles size={13}/> {config.model||'Choose a model to get started'}</span>{busy?<button type="button" className="send" aria-label="Stop response" onClick={()=>controller.current?.abort()}><Square size={16}/></button>:<button type="submit" className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>}</div></form><div className="composer-note">Enter to send · Shift + Enter for a new line <span>AI can make mistakes. Stay curious.</span></div></div>
-  </section></main><footer><span>BUILT FOR YOUR TRAIN OF THOUGHT</span><span>LangChain <b>·</b> FastAPI <b>·</b> React</span></footer>
- </div>
+
+ const activeThemeObj = THEMES.find(t => t.id === theme) || THEMES[0];
+
+ return (
+  <div className="app">
+   <BackgroundLayers bgStyle={bgStyle} />
+   <ThemeModal 
+    open={themeModalOpen} 
+    onClose={() => setThemeModalOpen(false)} 
+    theme={theme} 
+    setTheme={setTheme} 
+    bgStyle={bgStyle} 
+    setBgStyle={setBgStyle} 
+   />
+   <header>
+    <a className="brand" href="/" aria-label="Glasschat home">
+     <span className="brand-icon"><Sparkles size={21}/></span>
+     glasschat
+     <span className="beta">PLAYGROUND</span>
+    </a>
+    <div className="header-right">
+     <button 
+      type="button" 
+      className="theme-header-btn" 
+      onClick={() => setThemeModalOpen(true)}
+      aria-label="Customize appearance and theme"
+      title="Customize appearance and theme"
+     >
+      <Palette size={14} />
+      <span>Theme: <span className="theme-badge-name">{activeThemeObj.name.split(' ')[0]}</span></span>
+     </button>
+     <span className="private"><ShieldCheck size={14}/> Keys saved locally</span>
+     <button className="icon-button mobile-toggle" onClick={()=>setSettings(!settings)} aria-label="Toggle model settings">
+      <SlidersHorizontal size={20}/>
+     </button>
+    </div>
+   </header>
+   <main>
+    <aside className={`glass sidebar ${settings?'open':''}`}>
+     <div className="panel-heading"><span className="eyebrow">YOUR WORKSPACE</span><SlidersHorizontal size={16}/></div>
+     <h2>Make it yours.</h2>
+     <p className="muted intro">Your model. Your conversation.</p>
+     <button className="new-chat" onClick={newChat} disabled={busy}><Plus size={17}/> New conversation <span>↗</span></button>
+     
+     <div className="divider"/>
+     <div className="section-label"><Palette size={15}/> APPEARANCE & THEME</div>
+     <div className="theme-quick-bar">
+      {THEMES.map(t => (
+       <button
+        key={t.id}
+        type="button"
+        className={`theme-dot-btn ${theme === t.id ? 'active' : ''}`}
+        onClick={() => setTheme(t.id)}
+        title={`${t.name} (${t.mood})`}
+        aria-label={`Switch to ${t.name}`}
+        style={{ background: t.previewGradient }}
+       >
+        {theme === t.id && <span className="dot-inner-check" />}
+       </button>
+      ))}
+     </div>
+     <div className="sidebar-bg-wrap">
+      <label htmlFor="bg-select" className="mini-label">Background effect</label>
+      <div className="select-wrap">
+       <select id="bg-select" value={bgStyle} onChange={e => setBgStyle(e.target.value)}>
+        {BACKGROUNDS.map(b => (
+         <option key={b.id} value={b.id}>{b.name}</option>
+        ))}
+       </select>
+       <ChevronDown size={14} />
+      </div>
+     </div>
+     <button type="button" className="customize-appearance-btn" onClick={() => setThemeModalOpen(true)}>
+      <Palette size={13} />
+      <span>All themes & visual effects</span>
+      <ArrowUpRight size={13} />
+     </button>
+
+     <div className="divider"/>
+     <div className="section-label"><Cpu size={15}/> MODEL CONNECTION</div>
+     <fieldset disabled={busy}>
+      <label htmlFor="provider">Provider</label>
+      <div className="select-wrap">
+       <select id="provider" value={config.provider} onChange={e=>switchProvider(e.target.value)}>
+        {Object.entries(providers).map(([key,label])=><option value={key} key={key}>{label}</option>)}
+       </select>
+       <ChevronDown size={16}/>
+      </div>
+      <label htmlFor="model">Model name</label>
+      <input id="model" value={config.model} onChange={e=>change('model',e.target.value)} placeholder={config.provider==='ollama'?'e.g. qwen2.5-coder:1.5b':'Enter an available model ID'} autoComplete="off"/>
+      {config.provider==='ollama'? (
+       <>
+        <label htmlFor="url">Ollama server URL</label>
+        <input id="url" type="url" value={config.base_url} onChange={e=>change('base_url',e.target.value)}/>
+        <p className="field-hint">For Docker, use host.docker.internal to reach Ollama on your computer.</p>
+       </>
+      ) : (
+       <>
+        <label htmlFor="key">API key <span>SAVED LOCALLY</span></label>
+        <input id="key" type="password" value={config.api_key} onChange={e=>change('api_key',e.target.value)} placeholder="Paste your API key" autoComplete="off"/>
+        <p className="field-hint">Stored in browser local storage and sent to the backend for your requests.</p>
+       </>
+      )}
+      <details>
+       <summary>Assistant instructions</summary>
+       <textarea aria-label="Assistant instructions" value={config.system_prompt} onChange={e=>change('system_prompt',e.target.value)} rows={4} maxLength={4000}/>
+      </details>
+     </fieldset>
+     <div className="sidebar-footer">
+      <span className={`status-dot ${ready?'ready':''}`}/>
+      <span>{ready?'Configured · not yet verified':'Waiting for connection details'}</span>
+     </div>
+    </aside>
+    <section className="glass chat-panel">
+     <div className="chat-header">
+      <div className="chat-title"><MessageCircle size={17}/><span>Conversation</span></div>
+      <span className="model-badge"><span className="status-dot"/>{providers[config.provider]}</span>
+     </div>
+     <div className="chat-scroll" ref={chatScroll} aria-live="polite" aria-busy={busy}>
+      {messages.length===0 ? (
+       <div className="welcome">
+        <div className="hero-symbol"><Sparkles size={34}/></div>
+        <div className="eyebrow hero-eyebrow">A LITTLE SPACE FOR BIG IDEAS</div>
+        <h1>A clearer<br/><span>conversation.</span></h1>
+        <p>Think out loud. Follow your curiosity.<br/>Bring your favorite model along.</p>
+        <div className="starters">
+         {starters.map(([title,prompt],i)=>(
+          <button key={title} onClick={()=>setInput(prompt)}>
+           <span className="starter-icon">{i===0?<Sparkles size={17}/>:i===1?<Zap size={17}/>:<MessageCircle size={17}/>}</span>
+           <strong>{title}</strong>
+           <ArrowUpRight size={15}/>
+          </button>
+         ))}
+        </div>
+       </div>
+      ) : (
+       <div className="messages">{messages.map((m,i)=><ChatMessage key={i} m={m}/>)}</div>
+      )}
+     </div>
+     <div className="composer-area">
+      {error&&<div className="error" role="alert">{error}</div>}
+      <form onSubmit={send} className="composer">
+       <textarea aria-label="Message" placeholder="Where should we begin?" value={input} onChange={e=>setInput(e.target.value)} rows={2} maxLength={32000} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/>
+       <div className="composer-bottom">
+        <span><Sparkles size={13}/> {config.model||'Choose a model to get started'}</span>
+        {busy ? (
+         <button type="button" className="send" aria-label="Stop response" onClick={()=>controller.current?.abort()}><Square size={16}/></button>
+        ) : (
+         <button type="submit" className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>
+        )}
+       </div>
+      </form>
+      <div className="composer-note">Enter to send · Shift + Enter for a new line <span>AI can make mistakes. Stay curious.</span></div>
+     </div>
+    </section>
+   </main>
+   <footer>
+    <span>BUILT FOR YOUR TRAIN OF THOUGHT</span>
+    <span>LangChain <b>·</b> FastAPI <b>·</b> React</span>
+   </footer>
+  </div>
+ );
 }
+
 createRoot(document.getElementById('root')).render(<App/>);
