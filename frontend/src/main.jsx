@@ -22,6 +22,26 @@ function getInitialConfig(){
  return initialConfig;
 }
 
+async function copyToClipboard(text) {
+ try {
+  if (navigator?.clipboard?.writeText) {
+   await navigator.clipboard.writeText(text);
+  } else {
+   const ta = document.createElement('textarea');
+   ta.value = text;
+   ta.style.position = 'fixed';
+   ta.style.opacity = '0';
+   document.body.appendChild(ta);
+   ta.select();
+   document.execCommand('copy');
+   document.body.removeChild(ta);
+  }
+  return true;
+ } catch (e) {
+  return false;
+ }
+}
+
 function CodeBlock({ children, ...props }){
  const [copied, setCopied] = useState(false);
  const extractText = (elem) => {
@@ -41,22 +61,11 @@ function CodeBlock({ children, ...props }){
  }
 
  const copy = async () => {
-  try {
-   if (navigator?.clipboard?.writeText) {
-    await navigator.clipboard.writeText(codeText);
-   } else {
-    const ta = document.createElement('textarea');
-    ta.value = codeText;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-   }
+  const ok = await copyToClipboard(codeText);
+  if (ok) {
    setCopied(true);
    setTimeout(() => setCopied(false), 2000);
-  } catch (e) {}
+  }
  };
 
  return (
@@ -69,6 +78,68 @@ function CodeBlock({ children, ...props }){
    </div>
    <pre {...props}>{children}</pre>
   </div>
+ );
+}
+
+function ChatMessage({ m }){
+ const [copied, setCopied] = useState(false);
+ const copy = async () => {
+  if (!m.content) return;
+  const ok = await copyToClipboard(m.content);
+  if (ok) {
+   setCopied(true);
+   setTimeout(() => setCopied(false), 2000);
+  }
+ };
+
+ return (
+  <article className={`message ${m.role} ${m.failed ? 'failed' : ''}`}>
+   <div className="message-meta">
+    {m.role === 'user' ? (
+     <>
+      {m.content && (
+       <button
+        type="button"
+        className={`message-copy-btn ${copied ? 'copied' : ''}`}
+        onClick={copy}
+        aria-label="Copy message"
+        title="Copy message"
+       >
+        {copied ? <><Check size={11} /><span>Copied</span></> : <><Copy size={11} /><span>Copy</span></>}
+       </button>
+      )}
+      <span>You</span>
+     </>
+    ) : (
+     <span className="message-author">
+      <Sparkles size={13} /> {m.label || 'Assistant'}
+      {m.failed && <span> · incomplete</span>}
+     </span>
+    )}
+   </div>
+   <div className="message-body">
+    {m.content ? (
+     <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ pre: CodeBlock }}>
+      {m.content}
+     </ReactMarkdown>
+    ) : (
+     <span className="thinking">Thinking<span>...</span></span>
+    )}
+   </div>
+   {m.role === 'assistant' && m.content && (
+    <div className="message-actions">
+     <button
+      type="button"
+      className={`reply-copy-btn ${copied ? 'copied' : ''}`}
+      onClick={copy}
+      aria-label="Copy reply"
+      title="Copy reply"
+     >
+      {copied ? <><Check size={12} /><span>Copied</span></> : <><Copy size={12} /><span>Copy</span></>}
+     </button>
+    </div>
+   )}
+  </article>
  );
 }
 
@@ -156,7 +227,7 @@ function App(){
    <div className="sidebar-footer"><span className={`status-dot ${ready?'ready':''}`}/><span>{ready?'Configured · not yet verified':'Waiting for connection details'}</span></div>
   </aside>
   <section className="glass chat-panel"><div className="chat-header"><div className="chat-title"><MessageCircle size={17}/><span>Conversation</span></div><span className="model-badge"><span className="status-dot"/>{providers[config.provider]}</span></div>
-     <div className="chat-scroll" ref={chatScroll} aria-live="polite" aria-busy={busy}>{messages.length===0?<div className="welcome"><div className="hero-symbol"><Sparkles size={34}/></div><div className="eyebrow hero-eyebrow">A LITTLE SPACE FOR BIG IDEAS</div><h1>A clearer<br/><span>conversation.</span></h1><p>Think out loud. Follow your curiosity.<br/>Bring your favorite model along.</p><div className="starters">{starters.map(([title,prompt],i)=><button key={title} onClick={()=>setInput(prompt)}><span className="starter-icon">{i===0?<Sparkles size={17}/>:i===1?<Zap size={17}/>:<MessageCircle size={17}/>}</span><strong>{title}</strong><ArrowUpRight size={15}/></button>)}</div></div>:<div className="messages">{messages.map((m,i)=><article key={i} className={`message ${m.role} ${m.failed?'failed':''}`}><div className="message-meta">{m.role==='user'?'You':<><Sparkles size={13}/> {m.label||'Assistant'}</>}{m.failed&&<span> · incomplete</span>}</div><div className="message-body">{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]} components={{pre:CodeBlock}}>{m.content}</ReactMarkdown>:<span className="thinking">Thinking<span>...</span></span>}</div></article>)}</div>}</div>
+     <div className="chat-scroll" ref={chatScroll} aria-live="polite" aria-busy={busy}>{messages.length===0?<div className="welcome"><div className="hero-symbol"><Sparkles size={34}/></div><div className="eyebrow hero-eyebrow">A LITTLE SPACE FOR BIG IDEAS</div><h1>A clearer<br/><span>conversation.</span></h1><p>Think out loud. Follow your curiosity.<br/>Bring your favorite model along.</p><div className="starters">{starters.map(([title,prompt],i)=><button key={title} onClick={()=>setInput(prompt)}><span className="starter-icon">{i===0?<Sparkles size={17}/>:i===1?<Zap size={17}/>:<MessageCircle size={17}/>}</span><strong>{title}</strong><ArrowUpRight size={15}/></button>)}</div></div>:<div className="messages">{messages.map((m,i)=><ChatMessage key={i} m={m}/>)}</div>}</div>
    <div className="composer-area">{error&&<div className="error" role="alert">{error}</div>}<form onSubmit={send} className="composer"><textarea aria-label="Message" placeholder="Where should we begin?" value={input} onChange={e=>setInput(e.target.value)} rows={2} maxLength={32000} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/><div className="composer-bottom"><span><Sparkles size={13}/> {config.model||'Choose a model to get started'}</span>{busy?<button type="button" className="send" aria-label="Stop response" onClick={()=>controller.current?.abort()}><Square size={16}/></button>:<button type="submit" className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>}</div></form><div className="composer-note">Enter to send · Shift + Enter for a new line <span>AI can make mistakes. Stay curious.</span></div></div>
   </section></main><footer><span>BUILT FOR YOUR TRAIN OF THOUGHT</span><span>LangChain <b>·</b> FastAPI <b>·</b> React</span></footer>
  </div>

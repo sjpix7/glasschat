@@ -23,7 +23,7 @@ Switch effortlessly between **OpenAI**, **Anthropic**, **Google Gemini**, and lo
 
 - 🔮 **Glassmorphism Aesthetic**: Translucent frosted panels, backdrop blur, ambient neon orbs, and responsive design.
 - ⚡ **Real-Time Streaming**: Low-latency token-by-token streaming over NDJSON.
-- 📋 **Code Copying**: Formatted code blocks with language indicators and one-click copy to clipboard.
+- 📋 **One-Click Copying**: Copy entire sent prompts, assistant responses, or individual code blocks with a single click.
 - 💾 **Local Storage Persistence**: Model names, API keys, and provider selections are saved in your browser across refreshes.
 - 🔄 **Multi-Provider Support**:
   - `OpenAI` (`gpt-4o`, `gpt-4o-mini`, `o1`, etc.)
