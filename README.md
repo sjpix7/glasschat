@@ -1,4 +1,4 @@
-# ✨ Glasschat
+# 🔮✨ Glasschat
 
 <p align="center">
   <img src="assets/screenshot.jpg" alt="Glasschat Interface" width="100%" style="border-radius: 12px; box-shadow: 0 20px 70px rgba(5,5,18,0.35);" />
