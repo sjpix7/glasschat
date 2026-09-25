@@ -1,0 +1,10 @@
+services:
+  glasschat:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      OLLAMA_ALLOWED_HOSTS: "localhost,127.0.0.1,host.docker.internal,ollama"
+    restart: unless-stopped
