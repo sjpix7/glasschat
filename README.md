@@ -1,46 +1,101 @@
-# Glasschat
+# ✨ Glasschat
 
-A small, readable LangChain chatbot with FastAPI, React, streamed Markdown replies, and a purple/blue glassmorphism interface. Switch between OpenAI, Anthropic, Google Gemini, and local Ollama from the sidebar. No database or account setup.
+<p align="center">
+  <img src="assets/screenshot.jpg" alt="Glasschat Interface" width="100%" style="border-radius: 12px; box-shadow: 0 20px 70px rgba(5,5,18,0.35);" />
+</p>
 
-## Start with Docker
+<p align="center">
+  <a href="https://react.dev"><img src="https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React 19" /></a>
+  <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" /></a>
+  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python_3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12" /></a>
+  <a href="https://www.docker.com"><img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" /></a>
+  <a href="https://www.langchain.com"><img src="https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white" alt="LangChain" /></a>
+  <a href="https://vitejs.dev"><img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" /></a>
+</p>
 
-Install Docker with Compose, extract this project, and run from this folder:
+A clean, readable, single-container LangChain chatbot with **FastAPI**, **React 19**, streamed Markdown replies, and a dark purple/blue glassmorphism interface. 
+
+Switch effortlessly between **OpenAI**, **Anthropic**, **Google Gemini**, and local **Ollama** models directly from the sidebar. No database, no user accounts, zero bloat.
+
+---
+
+### 🌟 Key Features
+
+- 🔮 **Glassmorphism Aesthetic**: Translucent frosted panels, backdrop blur, ambient neon orbs, and responsive design.
+- ⚡ **Real-Time Streaming**: Low-latency token-by-token streaming over NDJSON.
+- 📋 **Code Copying**: Formatted code blocks with language indicators and one-click copy to clipboard.
+- 💾 **Local Storage Persistence**: Model names, API keys, and provider selections are saved in your browser across refreshes.
+- 🔄 **Multi-Provider Support**:
+  - `OpenAI` (`gpt-4o`, `gpt-4o-mini`, `o1`, etc.)
+  - `Anthropic` (`claude-3-5-sonnet`, `claude-3-haiku`, etc.)
+  - `Google Gemini` (`gemini-2.5-flash`, `gemini-1.5-pro`, etc.)
+  - `Ollama` (`llama3.2`, `qwen2.5-coder:1.5b`, `mistral`, etc.)
+- 🛡️ **Privacy First**: Credentials are kept locally in browser storage and routed securely via backend request. They are never logged to disk or saved to a database.
+
+---
+
+## 🚀 Start with Docker
+
+Ensure Docker & Docker Compose are installed, then run from the project root:
 
 ```bash
 docker compose up --build
 ```
 
-Open **http://localhost:8000**. Choose a provider, enter a model ID available to your account and its API key, then send a message. On a phone-sized screen, the sliders button opens settings. Settings are locked during generation; use Stop before switching providers.
+1. Open **[http://localhost:8000](http://localhost:8000)** in your browser.
+2. Select your provider, enter your model ID and API key (or use local Ollama without a key).
+3. Start chatting! Settings are saved in your browser for your next session.
+
+To stop the container:
 
 ```bash
 docker compose down
 ```
 
-The multi-stage Dockerfile builds React and copies it into a single Python runtime container. FastAPI serves the frontend and `/api` on port 8000. The default Compose port is bound to your computer's loopback interface.
+The multi-stage `Dockerfile` compiles the React frontend and packages it into a lightweight, non-root Python container serving both the static UI and the `/api` endpoints on port `8000`.
 
-## Ollama on your computer
+---
 
-1. Install Ollama: https://ollama.com/download
-2. Download a model, for example: `ollama pull llama3.2`
-3. Ensure the Ollama server is running. Select **Ollama** in Glasschat.
-4. Model name: `llama3.2` (or the exact installed name from `ollama list`).
-5. URL from Docker: `http://host.docker.internal:11434`. No API key is needed.
+## 🦙 Ollama on your computer
 
-The container has its own localhost. `http://localhost:11434` inside Docker does not reach your host's Ollama. Compose includes the host-gateway mapping needed on Linux. Ollama must listen on an interface reachable from Docker; if connection fails, stop the existing Ollama server and start it with `OLLAMA_HOST=0.0.0.0:11434 ollama serve` (macOS/Linux). Restrict port 11434 to trusted local/Docker traffic with your firewall. Do not expose Ollama to the internet. On Windows, set the OLLAMA_HOST environment variable and restart Ollama. Ollama itself and model weights are not included in the app image.
+1. **Install Ollama**: [https://ollama.com/download](https://ollama.com/download)
+2. **Download a model** in your terminal:
+   ```bash
+   ollama pull qwen2.5-coder:1.5b
+   # or
+   ollama pull llama3.2
+   ```
+3. **Verify it's running**:
+   ```bash
+   ollama list
+   ```
+4. **Configure Glasschat**:
+   - Provider: **Ollama**
+   - Model name: `qwen2.5-coder:1.5b` (or your chosen model name)
+   - Server URL: `http://host.docker.internal:11434` (or `http://localhost:11434`)
+   - *No API key required.*
 
-For a different trusted Ollama machine, add its exact hostname/IP to `OLLAMA_ALLOWED_HOSTS` in compose.yaml, restart the container, and enter that URL in the UI. Only http/https origin URLs (no path, credentials, query, or fragment) are accepted; redirects are disabled.
+> [!NOTE]
+> When running inside Docker, `localhost` refers to the container itself. Glasschat automatically handles routing to your host machine (`host.docker.internal:11434`).
 
-## Local development
+---
 
-Python 3.12 and Node 22+ are recommended.
+## 💻 Local Development (without Docker)
+
+Python 3.12+ and Node 22+ are recommended.
+
+### 1. Backend
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 # Windows: .venv\Scripts\activate
+
 pip install -r backend/requirements.txt
 uvicorn backend.app:app --reload --port 8000
 ```
+
+### 2. Frontend
 
 In a second terminal:
 
@@ -50,52 +105,67 @@ npm ci
 npm run dev
 ```
 
-Open the Vite URL (usually http://localhost:5173). Vite proxies `/api` to FastAPI. For Ollama without Docker, use `http://localhost:11434`.
+Open the Vite development URL (usually `http://localhost:5173`). Vite automatically proxies `/api` calls to FastAPI on port 8000. For local Ollama without Docker, use `http://localhost:11434`.
 
-## Understand the code
+---
 
-- `frontend/src/main.jsx`: connection form, chat history, Markdown rendering, streaming fetch, cancellation.
-- `frontend/src/style.css`: translucent panels, backdrop blur, faint borders, purple/blue orbs, responsive layout.
-- `backend/app.py`: input validation, provider factory, LangChain messages and streaming endpoint.
-- `backend/tests/test_app.py`: request validation, secret redaction, adapter creation, streaming and history checks.
-- `Dockerfile`: React build stage + non-root Python runtime.
+## 🏗 Understand the Code
 
-A message follows this path:
+```text
+glasschat/
+├── backend/
+│   ├── app.py            # FastAPI API, LangChain message adapters & streaming endpoint
+│   ├── requirements.txt  # Python dependencies (FastAPI, LangChain providers)
+│   └── tests/
+│       └── test_app.py   # Validation, secret redaction, streaming & adapter tests
+├── frontend/
+│   ├── src/
+│   │   ├── main.jsx      # React 19 app, streaming reader, CodeBlock copy & persistence
+│   │   └── style.css     # Glassmorphism design system & responsive styling
+│   ├── package.json
+│   └── vite.config.js
+├── assets/
+│   └── screenshot.jpg    # UI preview screenshot
+├── Dockerfile            # Multi-stage production build (Node build + Python runtime)
+├── compose.yaml          # Container orchestrator & host-gateway networking
+└── README.md
+```
 
-1. React sends provider settings and conversation history to `POST /api/chat`.
-2. FastAPI validates the request and constructs the selected LangChain chat adapter.
-3. User/assistant entries become `HumanMessage` / `AIMessage` objects; instructions become a `SystemMessage`.
-4. `model.astream(messages)` produces chunks, returned as newline-delimited JSON.
-5. React decodes complete lines and updates the assistant bubble as text arrives.
+### 🔄 Request & Streaming Lifecycle
 
-NDJSON events: `{"type":"token","text":"..."}`, `{"type":"done"}`, or `{"type":"error","message":"..."}`. Validation errors use HTTP 422. Provider errors arrive in the stream, since HTTP headers may already have been sent.
+1. **Client Request**: React reads saved provider settings and sends conversation history to `POST /api/chat`.
+2. **Validation**: FastAPI validates request parameters using Pydantic schemas.
+3. **Model Construction**: The backend instantiates the appropriate LangChain model adapter (`ChatOpenAI`, `ChatAnthropic`, `ChatGoogleGenerativeAI`, or `ChatOllama`).
+4. **Message Mapping**: Message objects are converted to `HumanMessage` / `AIMessage` pairs with an optional `SystemMessage`.
+5. **Streaming**: `model.astream(messages)` generates chunks returned as newline-delimited JSON (`application/x-ndjson`).
+6. **Live Rendering**: React decodes incoming chunks on the fly and renders Markdown with syntax-highlighted, copyable code blocks.
 
-## Behavior and limits
+---
 
-- Model configuration and API keys are preserved in browser localStorage across refreshes and per provider. Conversation history is held in memory only during the session. New conversation clears history; changing provider switches to that provider's saved model/key.
-- Switching provider sends prior successful turns to the newly selected provider on your next message. Partial/failed assistant replies are excluded from subsequent requests.
-- Keys are stored in browser localStorage for convenience across refreshes and travel through the backend to the selected provider. They are never logged by app code. Use HTTPS if you adapt this for remote access.
-- This is a single-user local starter, without authentication or rate limiting. Add those and restrict Ollama network access before any shared deployment.
-- Cloud providers may charge for API calls. You supply your own API credentials and valid model ID. No model list is hard-coded because availability varies by account.
-- Responses have a 180-second overall timeout; input is limited to 100 messages and 150,000 characters. These are app limits, not token counts; a model's context window may be smaller.
-- No RAG, database, persistent chat, uploads, or agent tools are included. This keeps the core LangChain flow easy to learn.
-- Markdown is rendered without enabling raw HTML.
+## 🔒 Behavior, Security & Limits
 
-## Tests
+- **Local Storage**: Models and API keys persist in browser `localStorage` for convenience across page refreshes.
+- **Session History**: Conversation history is maintained in browser memory and resets on fresh sessions.
+- **Credential Safety**: API keys travel only through the backend to the selected provider. They are never saved to a database, written to disk, or logged.
+- **Limits**: Configured with a 180-second response timeout, maximum 100 messages, and 150,000 character limit per conversation.
+- **Safe Markdown**: Rendered using `react-markdown` and `remark-gfm` without raw HTML execution.
+
+---
+
+## 🧪 Tests
+
+Run backend unit tests and frontend production build checks:
 
 ```bash
 pip install pytest httpx
 python -m pytest backend/tests -q
+
 cd frontend
 npm run build
 ```
 
-Official adapter documentation: https://reference.langchain.com/python/integrations/overview
+---
 
-## Validation of this package
+## 📄 License & Credits
 
-- Eight backend tests passed, including construction of all four real LangChain adapters without network calls.
-- React/Vite production build passed.
-- Cloud/Ollama live inference was not run: no user API credentials or local model server were supplied.
-- Docker image build was not run: Docker is unavailable in the authoring environment.
-- Automated browser/visual checks could not run because the browser binary download failed. The responsive interface still needs a browser smoke test on your computer.
+Built with [LangChain](https://github.com/langchain-ai/langchain), [FastAPI](https://fastapi.tiangolo.com/), [React](https://react.dev/), and [Lucide Icons](https://lucide.dev/).
