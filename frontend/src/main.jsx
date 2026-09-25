@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { 
   Sparkles, ArrowUp, Plus, SlidersHorizontal, ArrowUpRight, 
   Square, ChevronDown, ShieldCheck, MessageCircle, Cpu, Zap, 
-  Copy, Check, Palette, X, Waves, Grid 
+  Copy, Check, Palette, X, Waves, Grid, Activity, TrendingUp, Clock 
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -34,6 +34,14 @@ const BACKGROUNDS = [
   { id: 'cyber-grid', name: 'Cyber Grid', desc: 'High-tech perspective glass grid', icon: Grid },
   { id: 'minimal', name: 'Minimal Studio', desc: 'Calm vignette without motion', icon: Square },
 ];
+
+function estimateTokens(text) {
+  if (!text) return 0;
+  const str = text.trim();
+  const words = str.split(/\s+/).filter(Boolean).length;
+  const chars = str.length;
+  return Math.max(1, Math.round((chars / 4.0 + words * 1.3) / 2.0));
+}
 
 function getInitialConfig(){
  try{
@@ -132,6 +140,9 @@ function ChatMessage({ m }){
   }
  };
 
+ const promptTokens = m.usage?.prompt_tokens;
+ const completionTokens = m.usage?.completion_tokens || m.tokens || estimateTokens(m.content);
+
  return (
   <article className={`message ${m.role} ${m.failed ? 'failed' : ''}`}>
    <div className="message-meta">
@@ -148,6 +159,9 @@ function ChatMessage({ m }){
         {copied ? <><Check size={11} /><span>Copied</span></> : <><Copy size={11} /><span>Copy</span></>}
        </button>
       )}
+      <span className="token-tag" title="User input tokens">
+       <Zap size={10} /> {(m.tokens || estimateTokens(m.content)).toLocaleString()} tokens
+      </span>
       <span>You</span>
      </>
     ) : (
@@ -177,9 +191,388 @@ function ChatMessage({ m }){
      >
       {copied ? <><Check size={12} /><span>Copied</span></> : <><Copy size={12} /><span>Copy</span></>}
      </button>
+     <div 
+      className="token-badge" 
+      title={`Context/Prompt: ${promptTokens ? promptTokens.toLocaleString() : '~'} tokens · Output: ${completionTokens.toLocaleString()} tokens · Total: ${(m.usage?.total_tokens || (promptTokens ? promptTokens + completionTokens : completionTokens)).toLocaleString()} tokens`}
+     >
+      <Zap size={11} />
+      <span><strong>{completionTokens.toLocaleString()}</strong> tokens</span>
+      {m.usage?.duration_sec ? (
+       <span className="token-speed">
+        · {m.usage.duration_sec}s
+        {completionTokens && m.usage.duration_sec > 0 ? (
+         ` (${Math.round(completionTokens / m.usage.duration_sec)} t/s)`
+        ) : null}
+       </span>
+      ) : null}
+     </div>
     </div>
    )}
   </article>
+ );
+}
+
+function TokenTimelineGraph({ points, mode, setMode }) {
+ const [hoveredIdx, setHoveredIdx] = useState(null);
+
+ if (!points || points.length === 0) return null;
+
+ const width = 680;
+ const height = 210;
+ const paddingLeft = 48;
+ const paddingRight = 24;
+ const paddingTop = 22;
+ const paddingBottom = 36;
+ const plotWidth = width - paddingLeft - paddingRight;
+ const plotHeight = height - paddingTop - paddingBottom;
+
+ let rawMax = 10;
+ points.forEach(p => {
+  if (mode === 'cumulative') {
+   if (p.cumulativeTokens > rawMax) rawMax = p.cumulativeTokens;
+  } else {
+   const top = Math.max(p.turnTotal, p.promptTokens, p.completionTokens);
+   if (top > rawMax) rawMax = top;
+  }
+ });
+ const maxY = Math.ceil(rawMax * 1.15);
+
+ const getX = (i) => {
+  if (points.length === 1) return paddingLeft + plotWidth / 2;
+  return paddingLeft + (i / (points.length - 1)) * plotWidth;
+ };
+ const getY = (val) => {
+  return paddingTop + plotHeight - (val / maxY) * plotHeight;
+ };
+
+ let cumulativeAreaPath = '';
+ let cumulativeLinePath = '';
+ let promptLinePath = '';
+ let completionLinePath = '';
+
+ if (points.length === 1) {
+  const x = getX(0);
+  const yCum = getY(points[0].cumulativeTokens);
+  cumulativeAreaPath = `M ${x - 35},${paddingTop + plotHeight} L ${x - 35},${yCum} L ${x + 35},${yCum} L ${x + 35},${paddingTop + plotHeight} Z`;
+  cumulativeLinePath = `M ${x - 35},${yCum} L ${x + 35},${yCum}`;
+ } else {
+  const pts = points.map((p, i) => ({ x: getX(i), y: getY(p.cumulativeTokens) }));
+  cumulativeLinePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+  cumulativeAreaPath = `${cumulativeLinePath} L ${pts[pts.length - 1].x},${paddingTop + plotHeight} L ${pts[0].x},${paddingTop + plotHeight} Z`;
+
+  const promptPts = points.map((p, i) => ({ x: getX(i), y: getY(p.promptTokens) }));
+  promptLinePath = promptPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+
+  const compPts = points.map((p, i) => ({ x: getX(i), y: getY(p.completionTokens) }));
+  completionLinePath = compPts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+ }
+
+ const ticks = [0, 0.25, 0.5, 0.75, 1.0].map(ratio => ({
+  val: Math.round(ratio * maxY),
+  y: paddingTop + plotHeight - ratio * plotHeight
+ }));
+
+ const activePoint = hoveredIdx !== null ? points[hoveredIdx] : points[points.length - 1];
+
+ return (
+  <div className="timeline-chart-card">
+   <div className="chart-top-bar">
+    <div className="chart-title-wrap">
+     <Activity size={15} />
+     <h4>Token Progression</h4>
+    </div>
+    <div className="chart-legend">
+     {mode === 'cumulative' ? (
+      <div className="legend-item">
+       <span className="legend-dot cumulative" />
+       <span>Cumulative Total</span>
+      </div>
+     ) : (
+      <>
+       <div className="legend-item">
+        <span className="legend-dot prompt" />
+        <span>Context / Input</span>
+       </div>
+       <div className="legend-item">
+        <span className="legend-dot completion" />
+        <span>Reply / Output</span>
+       </div>
+      </>
+     )}
+    </div>
+    <div className="chart-mode-toggle">
+     <button
+      type="button"
+      className={`chart-mode-btn ${mode === 'breakdown' ? 'active' : ''}`}
+      onClick={() => setMode('breakdown')}
+     >
+      Per Turn
+     </button>
+     <button
+      type="button"
+      className={`chart-mode-btn ${mode === 'cumulative' ? 'active' : ''}`}
+      onClick={() => setMode('cumulative')}
+     >
+      Cumulative
+     </button>
+    </div>
+   </div>
+
+   <div className="timeline-svg-wrap">
+    <svg viewBox={`0 0 ${width} ${height}`} className="timeline-svg">
+     <defs>
+      <linearGradient id="cumAreaGrad" x1="0" y1="0" x2="0" y2="1">
+       <stop offset="0%" stopColor="#c084fc" stopOpacity="0.45" />
+       <stop offset="100%" stopColor="#c084fc" stopOpacity="0.02" />
+      </linearGradient>
+     </defs>
+
+     {ticks.map((t, idx) => (
+      <g key={idx}>
+       <line x1={paddingLeft} x2={width - paddingRight} y1={t.y} y2={t.y} className="chart-grid-line" />
+       <text x={paddingLeft - 8} y={t.y + 3} textAnchor="end" className="chart-axis-text">
+        {t.val >= 1000 ? `${(t.val / 1000).toFixed(1)}k` : t.val}
+       </text>
+      </g>
+     ))}
+
+     {mode === 'cumulative' && (
+      <>
+       <path d={cumulativeAreaPath} fill="url(#cumAreaGrad)" />
+       <path d={cumulativeLinePath} fill="none" stroke="#c084fc" strokeWidth="2.5" strokeLinecap="round" />
+       {points.map((p, i) => {
+        const cx = getX(i);
+        const cy = getY(p.cumulativeTokens);
+        const isHovered = hoveredIdx === i;
+        return (
+         <g key={i}>
+          <circle
+           cx={cx}
+           cy={cy}
+           r={isHovered ? 6 : 4}
+           fill="#ffffff"
+           stroke="#c084fc"
+           strokeWidth={isHovered ? 3 : 2}
+           className="chart-point"
+           onMouseEnter={() => setHoveredIdx(i)}
+           onMouseLeave={() => setHoveredIdx(null)}
+          />
+          <text x={cx} y={height - 10} textAnchor="middle" className="chart-axis-text">
+           Turn {p.turn}
+          </text>
+         </g>
+        );
+       })}
+      </>
+     )}
+
+     {mode === 'breakdown' && (
+      <>
+       {points.length > 1 && (
+        <>
+         <path d={promptLinePath} fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="3 3" />
+         <path d={completionLinePath} fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" />
+        </>
+       )}
+       {points.map((p, i) => {
+        const x = getX(i);
+        const yPrompt = getY(p.promptTokens);
+        const yComp = getY(p.completionTokens);
+        const isHovered = hoveredIdx === i;
+        const barWidth = points.length === 1 ? 36 : Math.min(24, Math.max(10, plotWidth / (points.length * 3.2)));
+
+        return (
+         <g key={i} onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)}>
+          <rect
+           x={x - barWidth - 4}
+           y={paddingTop}
+           width={barWidth * 2 + 8}
+           height={plotHeight}
+           fill={isHovered ? 'rgba(255,255,255,0.06)' : 'transparent'}
+           rx="4"
+           className="chart-bar"
+          />
+          <rect
+           x={x - barWidth}
+           y={yPrompt}
+           width={barWidth - 2}
+           height={paddingTop + plotHeight - yPrompt}
+           fill="#38bdf8"
+           opacity={isHovered ? 0.95 : 0.75}
+           rx="3"
+          />
+          <rect
+           x={x + 2}
+           y={yComp}
+           width={barWidth - 2}
+           height={paddingTop + plotHeight - yComp}
+           fill="var(--accent-primary)"
+           opacity={isHovered ? 1 : 0.85}
+           rx="3"
+          />
+          <text x={x} y={height - 10} textAnchor="middle" className="chart-axis-text">
+           Turn {p.turn}
+          </text>
+         </g>
+        );
+       })}
+      </>
+     )}
+
+     {hoveredIdx !== null && (
+      <line
+       x1={getX(hoveredIdx)}
+       x2={getX(hoveredIdx)}
+       y1={paddingTop}
+       y2={paddingTop + plotHeight}
+       stroke="rgba(255,255,255,0.35)"
+       strokeDasharray="2 2"
+      />
+     )}
+    </svg>
+
+    {activePoint && (
+     <div className="chart-hover-overlay">
+      <div className="chart-hover-left">
+       <strong>Turn #{activePoint.turn}</strong>
+       <span>({activePoint.time})</span>
+       <span>· {activePoint.model}</span>
+      </div>
+      <div className="chart-hover-stats">
+       <span>Input: <strong>{activePoint.promptTokens.toLocaleString()}</strong></span>
+       <span>Output: <strong>{activePoint.completionTokens.toLocaleString()}</strong></span>
+       <span>Turn Total: <strong>{activePoint.turnTotal.toLocaleString()}</strong></span>
+       <span>Cumulative: <strong>{activePoint.cumulativeTokens.toLocaleString()}</strong></span>
+       {activePoint.durationSec && (
+        <span>Speed: <strong>{activePoint.durationSec}s</strong></span>
+       )}
+      </div>
+     </div>
+    )}
+   </div>
+  </div>
+ );
+}
+
+function TokenTimelineTab({ stats, onSwitchToChat, config, providers }) {
+ const [chartMode, setChartMode] = useState('breakdown');
+
+ if (!stats || stats.timelinePoints.length === 0) {
+  return (
+   <div className="token-timeline-tab">
+    <div className="token-empty-state">
+     <div className="token-empty-icon"><Activity size={32} /></div>
+     <h3>No Token Data Recorded Yet</h3>
+     <p>Send a message in the conversation to start tracking token consumption, response speeds, and timeline progression.</p>
+     <button type="button" className="new-chat" onClick={onSwitchToChat}>
+      <MessageCircle size={15} /> Switch to Conversation <span>→</span>
+     </button>
+    </div>
+   </div>
+  );
+ }
+
+ return (
+  <div className="token-timeline-tab">
+   <div className="timeline-header">
+    <div className="timeline-title-area">
+     <h2>Token Analytics & Timeline</h2>
+     <p>Live session breakdown of input prompts, model generation, and cumulative tokens.</p>
+    </div>
+    <button type="button" className="new-chat" onClick={onSwitchToChat}>
+     <MessageCircle size={15} /> Back to Conversation <span>↗</span>
+    </button>
+   </div>
+
+   <div className="metrics-grid">
+    <div className="metric-card">
+     <div className="metric-card-top">
+      <span>Session Total</span>
+      <div className="metric-icon"><Zap size={14} /></div>
+     </div>
+     <div className="metric-value">{stats.totalTokens.toLocaleString()}</div>
+     <div className="metric-sub">Total tokens processed</div>
+    </div>
+
+    <div className="metric-card">
+     <div className="metric-card-top">
+      <span>Output Tokens</span>
+      <div className="metric-icon"><Sparkles size={14} /></div>
+     </div>
+     <div className="metric-value">{stats.completionTokens.toLocaleString()}</div>
+     <div className="metric-sub">Generated by assistant</div>
+    </div>
+
+    <div className="metric-card">
+     <div className="metric-card-top">
+      <span>Input Tokens</span>
+      <div className="metric-icon"><Cpu size={14} /></div>
+     </div>
+     <div className="metric-value">{stats.promptTokens.toLocaleString()}</div>
+     <div className="metric-sub">Prompt & context tokens</div>
+    </div>
+
+    <div className="metric-card">
+     <div className="metric-card-top">
+      <span>Avg Response</span>
+      <div className="metric-icon"><TrendingUp size={14} /></div>
+     </div>
+     <div className="metric-value">{stats.avgResponse.toLocaleString()}</div>
+     <div className="metric-sub">Tokens per reply ({stats.exchangeCount} turns)</div>
+    </div>
+   </div>
+
+   <TokenTimelineGraph
+    points={stats.timelinePoints}
+    mode={chartMode}
+    setMode={setChartMode}
+   />
+
+   <div className="turn-log-section">
+    <span className="eyebrow">CHRONOLOGICAL EXCHANGE BREAKDOWN ({stats.timelinePoints.length})</span>
+    <div className="turn-log-list">
+     {stats.timelinePoints.slice().reverse().map((pt) => {
+      const promptPct = pt.turnTotal > 0 ? (pt.promptTokens / pt.turnTotal) * 100 : 50;
+      const compPct = 100 - promptPct;
+      const tps = pt.durationSec && pt.durationSec > 0 ? Math.round(pt.completionTokens / pt.durationSec) : null;
+
+      return (
+       <div key={pt.turn} className="turn-log-item">
+        <div className="turn-log-header">
+         <div className="turn-number-tag">
+          <Clock size={13} />
+          <span>Turn #{pt.turn} · {pt.model}</span>
+         </div>
+         <span className="turn-time">{pt.time}</span>
+        </div>
+
+        <div className="turn-snippets">
+         <div className="turn-snippet-box">
+          <strong>User Prompt ({pt.promptTokens.toLocaleString()} tokens)</strong>
+          <p>{pt.userSnippet || 'Prompt'}</p>
+         </div>
+         <div className="turn-snippet-box">
+          <strong>Assistant Reply ({pt.completionTokens.toLocaleString()} tokens)</strong>
+          <p>{pt.assistantSnippet || 'Response'}</p>
+         </div>
+        </div>
+
+        <div className="turn-token-bar-wrap">
+         <div className="turn-token-bar" title={`Input: ${pt.promptTokens.toLocaleString()} tokens (${Math.round(promptPct)}%) | Output: ${pt.completionTokens.toLocaleString()} tokens (${Math.round(compPct)}%)`}>
+          <div className="turn-bar-prompt" style={{ width: `${promptPct}%` }} />
+          <div className="turn-bar-completion" style={{ width: `${compPct}%` }} />
+         </div>
+         <div className="turn-token-stats">
+          {pt.turnTotal.toLocaleString()} tokens
+          {tps ? ` (${tps} t/s)` : ''}
+         </div>
+        </div>
+       </div>
+      );
+     })}
+    </div>
+   </div>
+  </div>
  );
 }
 
@@ -311,15 +704,69 @@ function App(){
  const [theme, setTheme] = useState(getInitialTheme);
  const [bgStyle, setBgStyle] = useState(getInitialBg);
  const [themeModalOpen, setThemeModalOpen] = useState(false);
+ const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'tokens'
 
  const controller=useRef(null), chatScroll=useRef(null), sending=useRef(false);
  const ready=Boolean(config.model.trim() && (config.provider==='ollama' ? config.base_url.trim() : config.api_key.trim()));
 
+ const sessionStats = useMemo(() => {
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalApiTokens = 0;
+  let exchangeCount = 0;
+  const timelinePoints = [];
+  let runningCumulative = 0;
+
+  for (let i = 0; i < messages.length; i++) {
+   const msg = messages[i];
+   if (msg.role === 'user') {
+    const uTokens = msg.tokens || estimateTokens(msg.content);
+    promptTokens += uTokens;
+   } else if (msg.role === 'assistant') {
+    exchangeCount++;
+    const cTokens = msg.usage?.completion_tokens || msg.tokens || estimateTokens(msg.content);
+    const prevUserMsg = messages[i - 1];
+    const pTokens = msg.usage?.prompt_tokens || (prevUserMsg?.tokens || estimateTokens(prevUserMsg?.content || ''));
+    const turnTotal = msg.usage?.total_tokens || (pTokens + cTokens);
+    completionTokens += cTokens;
+    totalApiTokens += turnTotal;
+    runningCumulative += turnTotal;
+
+    const timeLabel = new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    timelinePoints.push({
+     turn: exchangeCount,
+     time: timeLabel,
+     timestamp: msg.timestamp || Date.now(),
+     promptTokens: pTokens,
+     completionTokens: cTokens,
+     turnTotal: turnTotal,
+     cumulativeTokens: runningCumulative,
+     model: msg.label || msg.model || config.model || 'Assistant',
+     durationSec: msg.usage?.duration_sec || null,
+     userSnippet: prevUserMsg?.content ? prevUserMsg.content.slice(0, 80) : '',
+     assistantSnippet: msg.content ? msg.content.slice(0, 100) : ''
+    });
+   }
+  }
+
+  const sessionTotal = totalApiTokens > 0 ? totalApiTokens : promptTokens;
+  const avgResponse = exchangeCount > 0 ? Math.round(completionTokens / exchangeCount) : 0;
+
+  return {
+   promptTokens,
+   completionTokens,
+   totalTokens: sessionTotal,
+   exchangeCount,
+   avgResponse,
+   timelinePoints
+  };
+ }, [messages, config.model]);
+
  useEffect(()=>{
-  if(chatScroll.current){
+  if(activeTab === 'chat' && chatScroll.current){
    chatScroll.current.scrollTo({top:chatScroll.current.scrollHeight,behavior:'smooth'});
   }
- },[messages,busy]);
+ },[messages, busy, activeTab]);
 
  useEffect(()=>()=>controller.current?.abort(),[]);
 
@@ -373,15 +820,36 @@ function App(){
  async function send(e){
   e?.preventDefault(); if(sending.current || !input.trim())return;
   if(!ready){setSettings(true);setError('Add a model name and your connection details first.');return;}
-  const history=[...messages.filter(m=>!m.failed && m.content),{role:'user',content:input.trim()}];
+  const userTokens = estimateTokens(input.trim());
+  const userMsg = { role: 'user', content: input.trim(), tokens: userTokens, timestamp: Date.now() };
+  const history = [...messages.filter(m=>!m.failed && m.content), userMsg];
   if(history.length>100){setError('This conversation is full. Start a new chat.');return;}
   sending.current=true;setBusy(true);setError('');setInput('');
-  setMessages([...history,{role:'assistant',content:'',label:`${providers[config.provider]} / ${config.model}`}]);
+  setMessages([...history,{
+   role:'assistant',
+   content:'',
+   label:`${providers[config.provider]} / ${config.model}`,
+   model: config.model,
+   timestamp: Date.now(),
+   usage: null
+  }]);
   controller.current=new AbortController();
   let completed=false;
+  let receivedUsage=null;
+
   const handleEvent=(event)=>{
    if(event.type==='error')throw new Error(event.message);
-   if(event.type==='done')completed=true;
+   if(event.type==='done'){
+    completed=true;
+    if(event.usage){
+     receivedUsage=event.usage;
+     setMessages(ms=>ms.map((m,i)=>i===ms.length-1?{
+      ...m,
+      usage: event.usage,
+      tokens: event.usage.completion_tokens || estimateTokens(m.content)
+     }:m));
+    }
+   }
    if(event.type==='token')setMessages(ms=>ms.map((m,i)=>i===ms.length-1?{...m,content:m.content+event.text}:m));
   };
   try{
@@ -397,7 +865,27 @@ function App(){
    controller.current?.abort();
    const stopped=err.name==='AbortError';setError(stopped?'Response stopped. You can send another message.':err.message);
    setMessages(ms=>ms.map((m,i)=>i===ms.length-1?{...m,failed:true,content:m.content||(stopped?'Response stopped.':err.message)}:m));
-  }finally{sending.current=false;setBusy(false);controller.current=null;}
+  }finally{
+   sending.current=false;setBusy(false);controller.current=null;
+   // Ensure assistant message has tokens recorded even if done event had no usage payload
+   setMessages(ms=>ms.map((m,i)=>{
+    if(i===ms.length-1 && m.role==='assistant'){
+     const comp = m.usage?.completion_tokens || estimateTokens(m.content);
+     const prompt = m.usage?.prompt_tokens || estimateTokens(history.map(h=>h.content).join(' '));
+     return {
+      ...m,
+      tokens: comp,
+      usage: m.usage || {
+       prompt_tokens: prompt,
+       completion_tokens: comp,
+       total_tokens: prompt + comp,
+       duration_sec: null
+      }
+     };
+    }
+    return m;
+   }));
+  }
  }
 
  const activeThemeObj = THEMES.find(t => t.id === theme) || THEMES[0];
@@ -514,45 +1002,90 @@ function App(){
     </aside>
     <section className="glass chat-panel">
      <div className="chat-header">
-      <div className="chat-title"><MessageCircle size={17}/><span>Conversation</span></div>
-      <span className="model-badge"><span className="status-dot"/>{providers[config.provider]}</span>
+      <div className="chat-tabs">
+       <button
+        type="button"
+        className={`chat-tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
+        onClick={() => setActiveTab('chat')}
+       >
+        <MessageCircle size={15} />
+        <span>Conversation</span>
+       </button>
+       <button
+        type="button"
+        className={`chat-tab-btn ${activeTab === 'tokens' ? 'active' : ''}`}
+        onClick={() => setActiveTab('tokens')}
+       >
+        <Activity size={15} />
+        <span>Token Timeline</span>
+        {sessionStats.totalTokens > 0 && (
+         <span className="tab-token-pill">{sessionStats.totalTokens.toLocaleString()}</span>
+        )}
+       </button>
+      </div>
+      <div className="chat-header-actions">
+       {sessionStats.totalTokens > 0 && (
+        <button 
+         type="button" 
+         className="session-token-chip" 
+         onClick={() => setActiveTab('tokens')}
+         title="Total session tokens. Click to view timeline graph"
+        >
+         <Zap size={12} />
+         <span><strong>{sessionStats.totalTokens.toLocaleString()}</strong> tokens</span>
+        </button>
+       )}
+       <span className="model-badge"><span className="status-dot"/>{providers[config.provider]}</span>
+      </div>
      </div>
-     <div className="chat-scroll" ref={chatScroll} aria-live="polite" aria-busy={busy}>
-      {messages.length===0 ? (
-       <div className="welcome">
-        <div className="hero-symbol"><Sparkles size={34}/></div>
-        <div className="eyebrow hero-eyebrow">A LITTLE SPACE FOR BIG IDEAS</div>
-        <h1>A clearer<br/><span>conversation.</span></h1>
-        <p>Think out loud. Follow your curiosity.<br/>Bring your favorite model along.</p>
-        <div className="starters">
-         {starters.map(([title,prompt],i)=>(
-          <button key={title} onClick={()=>setInput(prompt)}>
-           <span className="starter-icon">{i===0?<Sparkles size={17}/>:i===1?<Zap size={17}/>:<MessageCircle size={17}/>}</span>
-           <strong>{title}</strong>
-           <ArrowUpRight size={15}/>
-          </button>
-         ))}
-        </div>
-       </div>
-      ) : (
-       <div className="messages">{messages.map((m,i)=><ChatMessage key={i} m={m}/>)}</div>
-      )}
-     </div>
-     <div className="composer-area">
-      {error&&<div className="error" role="alert">{error}</div>}
-      <form onSubmit={send} className="composer">
-       <textarea aria-label="Message" placeholder="Where should we begin?" value={input} onChange={e=>setInput(e.target.value)} rows={2} maxLength={32000} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/>
-       <div className="composer-bottom">
-        <span><Sparkles size={13}/> {config.model||'Choose a model to get started'}</span>
-        {busy ? (
-         <button type="button" className="send" aria-label="Stop response" onClick={()=>controller.current?.abort()}><Square size={16}/></button>
+
+     {activeTab === 'chat' ? (
+      <>
+       <div className="chat-scroll" ref={chatScroll} aria-live="polite" aria-busy={busy}>
+        {messages.length===0 ? (
+         <div className="welcome">
+          <div className="hero-symbol"><Sparkles size={34}/></div>
+          <div className="eyebrow hero-eyebrow">A LITTLE SPACE FOR BIG IDEAS</div>
+          <h1>A clearer<br/><span>conversation.</span></h1>
+          <p>Think out loud. Follow your curiosity.<br/>Bring your favorite model along.</p>
+          <div className="starters">
+           {starters.map(([title,prompt],i)=>(
+            <button key={title} onClick={()=>setInput(prompt)}>
+             <span className="starter-icon">{i===0?<Sparkles size={17}/>:i===1?<Zap size={17}/>:<MessageCircle size={17}/>}</span>
+             <strong>{title}</strong>
+             <ArrowUpRight size={15}/>
+            </button>
+           ))}
+          </div>
+         </div>
         ) : (
-         <button type="submit" className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>
+         <div className="messages">{messages.map((m,i)=><ChatMessage key={i} m={m}/>)}</div>
         )}
        </div>
-      </form>
-      <div className="composer-note">Enter to send · Shift + Enter for a new line <span>AI can make mistakes. Stay curious.</span></div>
-     </div>
+       <div className="composer-area">
+        {error&&<div className="error" role="alert">{error}</div>}
+        <form onSubmit={send} className="composer">
+         <textarea aria-label="Message" placeholder="Where should we begin?" value={input} onChange={e=>setInput(e.target.value)} rows={2} maxLength={32000} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}/>
+         <div className="composer-bottom">
+          <span><Sparkles size={13}/> {config.model||'Choose a model to get started'}</span>
+          {busy ? (
+           <button type="button" className="send" aria-label="Stop response" onClick={()=>controller.current?.abort()}><Square size={16}/></button>
+          ) : (
+           <button type="submit" className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>
+          )}
+         </div>
+        </form>
+        <div className="composer-note">Enter to send · Shift + Enter for a new line <span>AI can make mistakes. Stay curious.</span></div>
+       </div>
+      </>
+     ) : (
+      <TokenTimelineTab
+       stats={sessionStats}
+       onSwitchToChat={() => setActiveTab('chat')}
+       config={config}
+       providers={providers}
+      />
+     )}
     </section>
    </main>
    <footer>

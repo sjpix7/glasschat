@@ -31,6 +31,7 @@ Switch effortlessly between **OpenAI**, **Anthropic**, **Google Gemini**, and lo
   - ☀️ **Solar Amber** — Warm espresso bronze, golden topaz & amber tones.
   - 🖤 **OLED Obsidian** — Pure pitch-black minimalism with crisp silver frost glass.
   - 💎 **Frosted Opal** — Clean, luminous frosted light mode with pastel lavender reflections.
+- 📊 **Live Token Tracking & Timeline Graph**: Real-time token counts for every sent message and model response, cumulative session totals, speed metrics (tokens/sec), and a dedicated **Token Timeline** tab featuring an interactive SVG progression graph and chronological exchange log.
 - 📋 **One-Click Copying**: Copy entire sent prompts, assistant responses, or individual code blocks with a single click.
 - 💾 **Local Storage Persistence**: Model names, API keys, provider selections, and active themes are saved in your browser across refreshes.
 - 🔄 **Multi-Provider Support**:

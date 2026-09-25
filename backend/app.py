@@ -72,7 +72,7 @@ async def response_headers(request: Request, call_next):
 def build_model(req: ChatRequest):
     key = req.api_key.get_secret_value().strip()
     if req.provider == "openai":
-        return ChatOpenAI(model=req.model, api_key=key, timeout=120, max_retries=0)
+        return ChatOpenAI(model=req.model, api_key=key, stream_usage=True, timeout=120, max_retries=0)
     if req.provider == "anthropic":
         return ChatAnthropic(model=req.model, api_key=key, max_tokens=4096, timeout=120, max_retries=0)
     if req.provider == "google":
@@ -85,6 +85,35 @@ def build_model(req: ChatRequest):
             base_url = f"{parsed.scheme}://host.docker.internal{port}"
     return ChatOllama(model=req.model, base_url=base_url,
                       client_kwargs={"timeout": 120, "follow_redirects": False})
+
+def estimate_tokens(text: str) -> int:
+    if not text:
+        return 0
+    words = len(text.strip().split())
+    chars = len(text)
+    return max(1, int(round((chars / 4.0 + words * 1.3) / 2.0)))
+
+def extract_usage(chunk):
+    usage = getattr(chunk, "usage_metadata", None)
+    if usage and isinstance(usage, dict):
+        inp = usage.get("input_tokens") or 0
+        out = usage.get("output_tokens") or 0
+        total = usage.get("total_tokens") or (inp + out)
+        if inp or out or total:
+            return {"prompt_tokens": inp, "completion_tokens": out, "total_tokens": total}
+    resp_meta = getattr(chunk, "response_metadata", None)
+    if resp_meta and isinstance(resp_meta, dict):
+        if "prompt_eval_count" in resp_meta or "eval_count" in resp_meta:
+            inp = resp_meta.get("prompt_eval_count", 0)
+            out = resp_meta.get("eval_count", 0)
+            return {"prompt_tokens": inp, "completion_tokens": out, "total_tokens": inp + out}
+        usage = resp_meta.get("usage")
+        if usage and isinstance(usage, dict):
+            inp = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+            out = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+            total = usage.get("total_tokens") or (inp + out)
+            return {"prompt_tokens": inp, "completion_tokens": out, "total_tokens": total}
+    return None
 
 def text_content(content):
     if isinstance(content, str):
@@ -108,6 +137,13 @@ async def chat(req: ChatRequest, request: Request):
             messages = [SystemMessage(content=req.system_prompt)] if req.system_prompt else []
             messages += [(HumanMessage if m.role == "user" else AIMessage)(content=m.content)
                          for m in req.messages]
+            
+            prompt_text = (req.system_prompt or "") + "".join(m.content for m in req.messages)
+            estimated_prompt_tokens = estimate_tokens(prompt_text)
+            accumulated_text = []
+            captured_usage = None
+            start_time = asyncio.get_event_loop().time()
+
             # Hard cap also covers providers without their own request timeout.
             async with asyncio.timeout(180):
                 async for chunk in model.astream(messages):
@@ -115,8 +151,35 @@ async def chat(req: ChatRequest, request: Request):
                         return
                     text = text_content(chunk.content)
                     if text:
+                        accumulated_text.append(text)
                         yield event("token", text=text)
-            yield event("done")
+                    chunk_usage = extract_usage(chunk)
+                    if chunk_usage:
+                        captured_usage = chunk_usage
+
+            elapsed_sec = max(0.001, asyncio.get_event_loop().time() - start_time)
+            full_reply = "".join(accumulated_text)
+
+            if captured_usage:
+                final_usage = {
+                    "prompt_tokens": captured_usage.get("prompt_tokens") or estimated_prompt_tokens,
+                    "completion_tokens": captured_usage.get("completion_tokens") or estimate_tokens(full_reply),
+                    "total_tokens": captured_usage.get("total_tokens") or (
+                        (captured_usage.get("prompt_tokens") or estimated_prompt_tokens) + 
+                        (captured_usage.get("completion_tokens") or estimate_tokens(full_reply))
+                    ),
+                    "duration_sec": round(elapsed_sec, 2),
+                }
+            else:
+                comp_tokens = estimate_tokens(full_reply)
+                final_usage = {
+                    "prompt_tokens": estimated_prompt_tokens,
+                    "completion_tokens": comp_tokens,
+                    "total_tokens": estimated_prompt_tokens + comp_tokens,
+                    "duration_sec": round(elapsed_sec, 2),
+                }
+
+            yield event("done", usage=final_usage)
         except asyncio.CancelledError:
             raise
         except TimeoutError:
